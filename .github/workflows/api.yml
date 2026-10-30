@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - 'api/**'
+      - 'infra/**'
       - '.github/workflows/api.yml'
   push:
     branches: [main]
     paths:
       - 'api/**'
+      - 'infra/**'
       - '.github/workflows/api.yml'
   workflow_dispatch:
 
@@ -54,3 +56,44 @@ jobs:
 
           print("API carregada e modelo executado com sucesso.")
           PY
+
+  publicar:
+    needs: validar
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.ENABLE_AZURE_DEPLOY == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: stress-scan-producao
+      cancel-in-progress: false
+
+    steps:
+      - name: Publicar API na Azure
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.AZURE_SSH_KNOWN_HOSTS }}
+          AZURE_HOST: ${{ vars.AZURE_HOST }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+          test -n "$AZURE_HOST"
+
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          chave=$(mktemp "$HOME/.ssh/stress-scan.XXXXXX")
+          trap 'rm -f "$chave"' EXIT
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$chave"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+          ssh -i "$chave" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o HostKeyAlgorithms=ssh-ed25519 \
+            -o ConnectTimeout=15 \
+            "nathan@$AZURE_HOST" "$TARGET_SHA"
+
+          curl --fail --silent --show-error --max-time 30 \
+            https://stressscan.southafricanorth.cloudapp.azure.com/
