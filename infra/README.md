@@ -1,0 +1,62 @@
+# Hospedagem — Stress Scan
+
+## Endereços
+
+- API: https://stressscan.southafricanorth.cloudapp.azure.com
+- Documentação: https://stressscan.southafricanorth.cloudapp.azure.com/docs
+
+No Flutter, usar o endereço da API como URL base, sem /docs.
+
+## Arquitetura
+
+Flutter → HTTPS/Nginx → FastAPI e modelo → MongoDB Atlas.
+
+- VM Azure com Ubuntu 24.04.
+- Uvicorn escutando somente em 127.0.0.1:8000.
+- Serviço systemd: stress-scan, habilitado na inicialização.
+- Nginx encaminhando as requisições para a API.
+- Certificado Let's Encrypt gerenciado pelo Certbot.
+- Renovação automática configurada e simulação de renovação concluída.
+- IP público da VM autorizado no MongoDB Atlas.
+- Credenciais mantidas somente em api/.env, com permissão 600.
+
+## Arquivos
+
+- stress-scan.service: configuração do serviço.
+- stress-scan.nginx.conf: configuração do Nginx após ativar HTTPS.
+
+A configuração HTTPS referencia certificados existentes na VM.
+Para reproduzir em outra máquina, emitir novos certificados com o Certbot.
+As chaves e o arquivo .env não devem ser versionados.
+
+## Operação
+
+Verificar serviço:
+
+    sudo systemctl status stress-scan --no-pager
+
+Consultar logs:
+
+    sudo journalctl -u stress-scan -n 50 --no-pager
+
+Reiniciar API:
+
+    sudo systemctl restart stress-scan
+
+Testar renovação do certificado:
+
+    sudo certbot renew --dry-run
+
+## Verificações realizadas
+
+Cadastro, login, autenticação, classificação com dados fictícios e
+recuperação da avaliação no histórico foram testados na VM.
+O login também foi testado pelo endereço público HTTPS sem túnel SSH.
+
+Esses testes verificam a integração técnica, não a qualidade do modelo.
+
+## Pendências
+
+- Configurar integração e publicação contínuas.
+- Definir e implementar a estratégia de escala automática.
+- Integrar o aplicativo Flutter à API.
