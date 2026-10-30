@@ -60,3 +60,26 @@ Esses testes verificam a integração técnica, não a qualidade do modelo.
 - Configurar integração e publicação contínuas.
 - Definir e implementar a estratégia de escala automática.
 - Integrar o aplicativo Flutter à API.
+
+## Publicação automática
+
+O workflow valida a API antes de publicar alterações da main.
+Pull requests executam apenas a validação.
+
+Configuração no GitHub Actions:
+
+- Secret AZURE_SSH_PRIVATE_KEY: chave exclusiva da publicação.
+- Secret AZURE_SSH_KNOWN_HOSTS: identidade SSH conferida na própria VM.
+- Variable AZURE_HOST: nome DNS público da VM.
+- Variable ENABLE_AZURE_DEPLOY: true para ativar a publicação.
+
+O script infra/deploy.sh foi instalado na VM em:
+ /home/nathan/.local/bin/stress-scan-deploy
+
+A chave SSH usa comando obrigatório e restrições de encaminhamento.
+O sudo permite reiniciar o serviço stress-scan sem senha.
+O script preserva o .env, recusa alterações locais e verifica se o
+commit pertence à main. A cópia da VM fica no SHA publicado.
+
+Há breve interrupção durante o reinício. Não há rollback automático.
+O deploy ainda não implementa escala automática.
