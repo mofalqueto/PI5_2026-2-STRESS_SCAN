@@ -1,0 +1,56 @@
+name: Validar API
+
+on:
+  pull_request:
+    paths:
+      - 'api/**'
+      - '.github/workflows/api.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - '.github/workflows/api.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      MONGODB_URI: mongodb://127.0.0.1:27017/
+      MONGODB_DATABASE: stress_scan_ci
+      JWT_SECRET_KEY: chave-ficticia-exclusiva-do-ci
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Instalar dependências
+        run: |
+          python3.12 -m venv .venv-ci
+          .venv-ci/bin/python -m pip install -r api/requirements.txt
+          .venv-ci/bin/python -m pip check
+
+      - name: Verificar código e executar modelo
+        working-directory: api
+        run: |
+          ../.venv-ci/bin/python -m compileall -q .
+          ../.venv-ci/bin/python - <<'PY'
+          import main
+          import pandas as pd
+
+          assert main.inicio()["aplicacao"] == "Stress Scan"
+
+          campos = set(main.Questionario.model_fields)
+          assert set(main.colunas) == campos, "Campos da API e do modelo divergem"
+
+          dados = main.Questionario(**{campo: 0 for campo in campos})
+          entrada = pd.DataFrame([dados.model_dump()], columns=main.colunas)
+          resultado = int(main.modelo.predict(entrada)[0])
+          assert resultado in (0, 1, 2), "Classe inesperada"
+
+          print("API carregada e modelo executado com sucesso.")
+          PY
