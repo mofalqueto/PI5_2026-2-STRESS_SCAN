@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pandas
+joblib
+scikit-learn==1.6.1
+pymongo
+pwdlib[argon2]
+email-validator
+PyJWT
